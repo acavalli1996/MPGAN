@@ -1,4 +1,6 @@
-import argparse
+
+
+import argparse # utility for Argument Parsing (module for argument/option analysis in the command line)
 import sys
 
 import os
@@ -11,20 +13,38 @@ import torch.optim as optim
 import numpy as np
 
 from copy import deepcopy
-import logging
+import logging # Importing of the logging module (https://realpython.com/python-logging/) 
+               # (https://docs.python.org/3/library/logging.html). 
+               # It reports events that occur during normal operation of a program
 
 
+# note: def setup_mpgan(args, gen) at rows 1050 (maybe something more due to previously comments)
+        
 def add_bool_arg(parser, name, help, default=False, no_name=None):
+    # a parser is an object of type Argument Parser to which some arguments are associated
+    
     varname = "_".join(name.split("-"))  # change hyphens to underscores
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument("--" + name, dest=varname, action="store_true", help=help)
+    # name.split("-") returns a list in which the words are not separated from themselves (alas there is a "-" in name so it happens       the opposite). 
+    # join return a string from a list of  by joining all the elements of an iterable (list, string, tuple)
+    group = parser.add_mutually_exclusive_group(required=False) # It creates a mutually exclusive group 
+                                                                # function that ensure argparse to show on the command line
+                                                                # only one of the argument in the mutually exclusive group
+                                                                # (if false...?)
+    group.add_argument("--" + name, dest=varname, action="store_true", help=help) 
+        """ 
+        dest = The name of the attribute to be added to the object returned by parse_args()
+        action - The basic type of action to be taken when this argument is encountered at the command line
+                 (store_true: stores the value True)
+        """      
+        
     if no_name is None:
         no_name = "no-" + name
         no_help = "don't " + help
     else:
         no_help = help
     group.add_argument("--" + no_name, dest=varname, action="store_false", help=no_help)
-    parser.set_defaults(**{varname: default})
+    parser.set_defaults(**{varname: default}) #(**kwargs): kwargs stands for keyword arguments
+    # with **kwargs, the argument is not showed in a tuple but in a dictionary (alone wrt the tuple, in a new raw) 
 
 
 class CustomFormatter(logging.Formatter):
@@ -44,7 +64,7 @@ class CustomFormatter(logging.Formatter):
 
     def __init__(self, args):
         if args.log_file == "stdout":
-            self.FORMATS = {
+            self.FORMATS = { # list of standard levels indicating the severity of events (increasing severity)
                 logging.DEBUG: self.blue + self.debug_format + self.reset,
                 logging.INFO: self.grey + self.info_format + self.reset,
                 logging.WARNING: self.yellow + self.debug_format + self.reset,
@@ -61,7 +81,7 @@ class CustomFormatter(logging.Formatter):
             }
 
     def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
+        log_fmt = self.FORMATS.get(record.levelno) # levelno is the numeric level of severity, levelname is the string of severity
         formatter = logging.Formatter(log_fmt, datefmt="%d/%m %H:%M:%S")
         return formatter.format(record)
 
@@ -74,13 +94,15 @@ class objectview(object):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
-
+    parser = argparse.ArgumentParser() 
+    # Creation of the argparse object (parser) that will hold all the information necessary to parse the command line into Python           data types.
+    
     ##########################################################
     # Meta
     ##########################################################
 
-    parser.add_argument(
+    parser.add_argument( # add_argument fills the ArgumentParser with information about program arguments. 
+    # It tells the Argument Parser how to take the strings on the command line and turn them into objects.
         "--name",
         type=str,
         default="test",
@@ -92,14 +114,14 @@ def parse_args():
 
     parser.add_argument("--ttsplit", type=float, default=0.7, help="ratio of train/test split")
 
-    parser.add_argument(
+    parser.add_argument( # Generator model
         "--model",
         type=str,
         default="mpgan",
         help="model to run",
         choices=["mpgan", "rgan", "graphcnngan", "treegan", "pcgan"],
     )
-    parser.add_argument(
+    parser.add_argument( # Discriminator model
         "--model-D",
         type=str,
         default="",
@@ -107,7 +129,7 @@ def parse_args():
         choices=["mpgan", "rgan", "pointnet", "pcgan"],
     )
 
-    add_bool_arg(parser, "load-model", "load a pretrained model", default=True)
+    add_bool_arg(parser, "load-model", "load a pretrained model", default=True) # Defined at the beginning of the code
     add_bool_arg(
         parser,
         "override-load-check",
@@ -183,7 +205,7 @@ def parse_args():
     # Architecture
     ##########################################################
 
-    parser.add_argument("--num-hits", type=int, default=30, help="number of hits")
+    parser.add_argument("--num-hits", type=int, default=30, help="number of hits") # Question: number of particles in the jets?
     parser.add_argument(
         "--coords",
         type=str,
@@ -202,7 +224,7 @@ def parse_args():
     parser.add_argument(
         "--hidden-node-size",
         type=int,
-        default=32,
+        default=32, # Question: node feature size = 32, see D.2 Kansal et al.?
         help="hidden vector size of each node (incl node feature size)",
     )
     parser.add_argument(
@@ -222,28 +244,28 @@ def parse_args():
     add_bool_arg(parser, "clabels-fl", "use conditional labels in first layer", default=True)
     add_bool_arg(parser, "clabels-hl", "use conditional labels in hidden layers", default=True)
 
-    parser.add_argument(
-        "--fn", type=int, nargs="*", default=[256, 256], help="hidden fn layers e.g. 256 256"
+    parser.add_argument( # Question: for PCGAN, see Kansal et al. D.4?
+        "--fn", type=int, nargs="*", default=[256, 256], help="hidden fn layers e.g. 256 256" 
     )
     parser.add_argument(
-        "--fe1g",
+        "--fe1g", # Generator edge feature layer 1
         type=int,
         nargs="*",
         default=0,
         help="hidden and output gen fe layers e.g. 64 128 in the first iteration - 0 means same as fe",
     )
     parser.add_argument(
-        "--fe1d",
+        "--fe1d", # Discriminator edge featur layer 1
         type=int,
         nargs="*",
         default=0,
         help="hidden and output disc fe layers e.g. 64 128 in the first iteration - 0 means same as fe",
     )
     parser.add_argument(
-        "--fe",
+        "--fe", 
         type=int,
         nargs="+",
-        default=[96, 160, 192],
+        default=[96, 160, 192], # Nodes per layer in r-GAN (see Kansal et al., D.2)
         help="hidden and output fe layers e.g. 64 128",
     )
     parser.add_argument(
@@ -276,7 +298,7 @@ def parse_args():
     add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     add_bool_arg(parser, "pos-diffs", "use pos diffs", default=False)
     add_bool_arg(parser, "all-ef", "use all node features for edge distance", default=False)
-    # add_bool_arg(parser, "scalar-diffs", "use scalar diff (as opposed to vector)", default=True)
+    # add_bool_arg(parser, "scalar-diffs", "use scalar diff (as opposed to vector)", default=True) Commented by creator of the code.
     add_bool_arg(parser, "deltar", "use delta r as an edge feature", default=False)
     add_bool_arg(parser, "deltacoords", "use delta coords as edge features", default=False)
 
@@ -372,7 +394,6 @@ def parse_args():
     parser.add_argument(
         "--optimizer",
         type=str,
-        default="rmsprop",
         help="pick optimizer",
         choices=["adam", "rmsprop", "adadelta", "agcd"],
     )
@@ -619,6 +640,8 @@ def parse_args():
 
     return args
 
+    #### End parse_args() ####
+
 
 def check_args_errors(args):
     if args.real_only and (not args.jets == "t" or not args.num_hits == 30):
@@ -702,7 +725,8 @@ def process_args(args):
     ##########################################################
     # Architecture
     ##########################################################
-
+    
+    # If not present specifics arg.mp_iters for both gen and disc, the args are equal to the one for the generic MPNet
     if not args.mp_iters_gen:
         args.mp_iters_gen = args.mp_iters
     if not args.mp_iters_disc:
@@ -784,7 +808,7 @@ def process_args(args):
             args.lr_disc = 6e-5
         elif args.jets == "q":
             args.lr_disc = 1.5e-5
-
+    
     if args.lr_gen == 0:
         if args.jets == "g":
             args.lr_gen = 1e-5
@@ -792,7 +816,8 @@ def process_args(args):
             args.lr_gen = 2e-5
         elif args.jets == "q":
             args.lr_gen = 0.5e-5
-
+    # note: the learning rate of the discriminator is three times greate with respect to the learning rate of the generator.
+    
     if args.aug_t or args.aug_f or args.aug_r90 or args.aug_s:
         args.augment = True
     else:
@@ -802,7 +827,7 @@ def process_args(args):
         logging.warning("augmentation is very experimental - try at your own risk")
 
     ##########################################################
-    # External models
+    # External models (see reference paper for the deatails of the architectures)
     ##########################################################
 
     if args.model_D == "":
@@ -822,8 +847,8 @@ def process_args(args):
             args.batch_size = 50
             args.num_epochs = 2000
         args.loss = "w"
-        args.gp = 10
-        args.num_critic = 5
+        args.gp = 10 # WGAN generator penalty weight? It's the gradient penalty.
+        args.num_critic = 5 # What is num_critic?
 
         if args.rgand_sfc == 0:
             args.rgand_sfc = [64, 128, 256, 256, 512]
@@ -845,7 +870,7 @@ def process_args(args):
                 args.rgand_fc = [128, 64]
 
         args.loss = "w"
-        args.gp = 10
+        args.gp = 10 # WGAN generator penalty weight ?
         args.num_critic = 5
 
         args.leaky_relu_alpha = 0.2
@@ -875,7 +900,7 @@ def process_args(args):
                 args.rgand_fc = [128, 64]
 
         args.loss = "w"
-        args.gp = 10
+        args.gp = 10 # WGAN generator penalty weight ? Gradient penalty?
         args.num_critic = 5
 
         args.leaky_relu_alpha = 0.2
@@ -887,7 +912,7 @@ def process_args(args):
 
         args.batch_size = 256
         args.loss = "w"
-        args.gp = 10
+        args.gp = 10 # WGAN generator penalty weight ? Gradient penalty?
         args.num_critic = 5
 
         args.leaky_relu_alpha = 0.2
@@ -1018,16 +1043,16 @@ def load_args(args):
     return args
 
 
-def init():
-    args = parse_args()
+def init(): 
+    args = parse_args() # Defined at the beginning of the code
     if args.debug:
         args.log = "DEBUG"
         args.log_file = "stdout"
-    args = init_project_dirs(args)
-    args = init_model_dirs(args)
-    args = init_logging(args)
-    args = process_args(args)
-    args = load_args(args)
+    args = init_project_dirs(args) # It creates 'datasets' and 'outputs' directories needed for the project.
+    args = init_model_dirs(args) # It creates directories for this training's logs, models, loss curves, and figures
+    args = init_logging(args) # It creates 
+    args = process_args(args) 
+    args = load_args(args) # Either save the arguments or, if loading a model, load the arguments for that model
     return args
 
 
@@ -1058,6 +1083,7 @@ def setup_mpgan(args, gen):
         "self_loops": args.self_loops,
         "sum": args.sum,
     }
+    # A dictionary is a mapping of key - parameter ("string" : parameter) 
 
     mp_args_first_layer_gen = {"clabels": args.clabels_first_layer}
     mp_args_first_layer_disc = {"clabels": args.clabels_first_layer, "all_ef": False}
@@ -1104,7 +1130,7 @@ def setup_mpgan(args, gen):
         "mask_real_only": args.mask_real_only,
         "mask_learn": args.mask_learn,
         "mask_learn_bin": args.mask_learn_bin,
-        "mask_learn_sep": args.mask_learn_sep,
+        "mask_learn_sep": args.mask_learn_sep, # (bool) separate layer to learn masks,
         "fmg": args.fmg,
         "mask_disc_sep": args.mask_disc_sep,
         "mask_fnd_np": args.mask_fnd_np,
@@ -1184,9 +1210,10 @@ def models(args, gen_only=False):
 
     if args.load_model:
         try:
-            G.load_state_dict(
+            G.load_state_dict( # Function that loads a model’s parameter dictionary using a deserialized state_dict
                 torch.load(f"{args.models_path}/G_{args.start_epoch}.pt", map_location=args.device)
-            )
+            ) # For more info about state_dict https://pytorch.org/tutorials/beginner/saving_loading_models.html#what-is-a-state-dict
+            # A state_dict is simply a Python dictionary object that maps each layer to its parameter tensor. 
             D.load_state_dict(
                 torch.load(f"{args.models_path}/D_{args.start_epoch}.pt", map_location=args.device)
             )
@@ -1199,13 +1226,13 @@ def models(args, gen_only=False):
         G = torch.nn.DataParallel(G)
         D = torch.nn.DataParallel(D)
 
-    G = G.to(args.device)
+    G = G.to(args.device) # Sending the model's parameter to the device.
     D = D.to(args.device)
 
     return G, D
 
 
-def pcgan_models(args):
+def pcgan_models(args): 
     """Load pre-trained PCGAN models"""
     import ext_models
     from ext_models import G_inv_Tanh, G
@@ -1238,7 +1265,7 @@ def pcgan_models(args):
 def get_model_args(args):
     """Set up model specific arguments for generation and training"""
     if args.model == "pcgan":
-        G_inv, G_pc = pcgan_models(args)
+        G_inv, G_pc = pcgan_models(args) # Load pre-trained PCGAN models
         pcgan_train_args = {
             "sample_points": False,
             "G_inv": G_inv,
@@ -1255,9 +1282,9 @@ def get_model_args(args):
             "lfc": args.lfc,
             "lfc_latent_size": args.lfc_latent_size,
             "mask_learn_sep": args.mask_learn_sep,
-            "latent_node_size": args.latent_node_size
-            if args.latent_node_size
-            else args.hidden_node_size,
+            "latent_node_size": args.latent_node_size # It continues considering the if else structure! 
+            if args.latent_node_size 
+            else args.hidden_node_size, 
         }
     elif args.model == "rgan" or args.model == "graphcnngan":
         model_args = {"latent_dim": args.latent_dim}
@@ -1268,6 +1295,7 @@ def get_model_args(args):
 
     model_train_args = {**model_args, **pcgan_train_args}
     model_eval_args = {**model_args, **pcgan_eval_args}
+    # What is the purpose of these part of code if we are not taking into account PGAN? 
 
     extra_args = {"mask_manual": args.mask_manual, "pt_cutoff": 0}  # TODO: get right pT cutoff
 
@@ -1275,23 +1303,31 @@ def get_model_args(args):
 
 
 def optimizers(args, G, D):
+    # Extraction of paramaters to optimize considering the use of spectral norm for gen/disc
     if args.spectral_norm_gen:
         G_params = filter(lambda p: p.requires_grad, G.parameters())
+        # note about filter function and lambda https://www.geeksforgeeks.org/lambda-filter-python-examples/
+        # filter is a function that takes as input a function and a list of args (es: G.parameters()) that will be filtered when the           passed function is true. 
+        # lambda is a generic name of an anonymous function, in this case it's true if gradient need to be computed 
     else:
         G_params = G.parameters()
+        
+    # Some info about spectral norm: https://openreview.net/pdf?id=B1QRgziT- ; 
+    # https://pytorch.org/docs/stable/generated/torch.nn.utils.spectral_norm.html#torch.nn.utils.spectral_norm
 
     if args.spectral_norm_gen:
-        D_params = filter(lambda p: p.requires_grad, D.parameters())
+        D_params = filter(lambda p: p.requires_grad, D.parameters()) # Same as for generator
     else:
         D_params = D.parameters()
-
-    if args.optimizer == "rmsprop":
+    
+    # Optimization 
+    if args.optimizer == "rmsprop": # For graphCNNgan. Question: Shuldn't be also of MPGAN?
         G_optimizer = optim.RMSprop(G_params, lr=args.lr_gen)
         D_optimizer = optim.RMSprop(D_params, lr=args.lr_disc)
-    elif args.optimizer == "adadelta":
+    elif args.optimizer == "adadelta": # Question: no args.optimizer = "adadelta" defined in this code?
         G_optimizer = optim.Adadelta(G_params, lr=args.lr_gen)
         D_optimizer = optim.Adadelta(D_params, lr=args.lr_disc)
-    elif args.optimizer == "adam" or args.optimizer == "None":
+    elif args.optimizer == "adam" or args.optimizer == "None": # Adam optimizer for rGAN, TREEGAN, PCGAN 
         G_optimizer = optim.Adam(
             G_params, lr=args.lr_gen, weight_decay=5e-4, betas=(args.beta1, args.beta2)
         )
@@ -1299,20 +1335,23 @@ def optimizers(args, G, D):
             D_params, lr=args.lr_disc, weight_decay=5e-4, betas=(args.beta1, args.beta2)
         )
 
-    if args.load_model:
+    if args.load_model: # Question: argument not defined in the .init()?
         G_optimizer.load_state_dict(
             torch.load(
-                args.models_path + "/G_optim_" + str(args.start_epoch) + ".pt",
+                args.models_path + "/G_optim_" + str(args.start_epoch) + ".pt", # Question: args.models_path not defined?
                 map_location=args.device,
             )
-        )
+        ) # A state_dict is simply a Python dictionary object that maps each layer to its parameter tensor.
         D_optimizer.load_state_dict(
             torch.load(
                 args.models_path + "/D_optim_" + str(args.start_epoch) + ".pt",
                 map_location=args.device,
             )
         )
-
+        # .load_state_dict(state_dict) copies parameters from state_dict into che module that called the function + its descendant
+        # Function that loads a model’s parameter dictionary using a deserialized state_dict
+        # torch.load() loads an obect from a file (the object must be saved with torch.save() previously
+ 
     return G_optimizer, D_optimizer
 
 
@@ -1320,8 +1359,9 @@ def losses(args):
     """Set up ``losses`` dict which stores model losses per epoch as well as evaluation metrics"""
     losses = {}
 
-    keys = ["D", "Dr", "Df", "G"]
-    if args.gp:
+    keys = ["D", "Dr", "Df", "G"] # Question: what is the meaning of the name of these key?
+    # Maybe D (Discriminative loss) ??? , Discriminative real loss, Discriminative fake loss, Generative loss 
+    if args.gp: # gp = WGAN generator penalty weight ? Gradient Penalty?
         keys.append("gp")
 
     eval_keys = ["w1p", "w1m", "w1efp", "fpnd", "coverage", "mmd"]
@@ -1335,7 +1375,7 @@ def losses(args):
     keys = keys + eval_keys
 
     for key in keys:
-        if args.load_model:
+        if args.load_model: # Question: not defined in init()?
             try:
                 losses[key] = np.loadtxt(f"{args.losses_path}/{key}.txt")
                 if losses[key].ndim == 1:
