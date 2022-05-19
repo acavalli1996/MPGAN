@@ -31,11 +31,10 @@ def add_bool_arg(parser, name, help, default=False, no_name=None):
                                                                 # only one of the argument in the mutually exclusive group
                                                                 # (if false...?)
     group.add_argument("--" + name, dest=varname, action="store_true", help=help) 
-    """ 
-    dest = The name of the attribute to be added to the object returned by parse_args()
-    action - The basic type of action to be taken when this argument is encountered at the command line
-                 (store_true: stores the value True)
-    """      
+    
+    # dest = The name of the attribute to be added to the object returned by parse_args()
+    # action - The basic type of action to be taken when this argument is encountered at the command line
+                 (store_true: stores the value True)      
         
     if no_name is None:
         no_name = "no-" + name
