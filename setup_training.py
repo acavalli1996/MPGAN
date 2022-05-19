@@ -34,7 +34,7 @@ def add_bool_arg(parser, name, help, default=False, no_name=None):
     
     # dest = The name of the attribute to be added to the object returned by parse_args()
     # action - The basic type of action to be taken when this argument is encountered at the command line
-                 (store_true: stores the value True)      
+    # (store_true: stores the value True)      
         
     if no_name is None:
         no_name = "no-" + name
