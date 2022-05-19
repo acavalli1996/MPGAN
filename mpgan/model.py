@@ -732,12 +732,12 @@ class MPGenerator(MPNet):
         mask_fne_np: bool = False,
         **mask_args,
     ):
-	"""
-        Explanation: the MP generator adds mask features to the initial particle cloud, using an
-        additional input of the size of the jet N , sampled from the real distribution, before the message
-        passing layers based on sorting in particle feature space
-        5 masking strategy: 4 in appendix E, 1 (the most successful) in Sec. 4. 
-        """
+	
+        # Explanation: the MP generator adds mask features to the initial particle cloud, using an
+        # additional input of the size of the jet N , sampled from the real distribution, before the message
+        # passing layers based on sorting in particle feature space
+        # 5 masking strategy: 4 in appendix E, 1 (the most successful) in Sec. 4. 
+         
         """
         Develops mask for input tensor ``x`` depending on the chosen masking strategy.
 
