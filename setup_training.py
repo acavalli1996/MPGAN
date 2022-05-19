@@ -995,7 +995,7 @@ def init_logging(args):
     handler.setLevel(level)
     handler.setFormatter(CustomFormatter(args))
 
-    logging.basicConfig(handlers=[handler], level=level, force=True)
+    #logging.basicConfig(handlers=[handler], level=level, force=True)
     logging.getLogger("matplotlib.font_manager").setLevel(logging.WARNING)
 
     return args
