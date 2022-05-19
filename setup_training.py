@@ -1300,7 +1300,7 @@ def get_model_args(args):
 
     return model_train_args, model_eval_args, extra_args
 
-
+'''
 def optimizers(args, G, D):
     # Extraction of paramaters to optimize considering the use of spectral norm for gen/disc
     if args.spectral_norm_gen:
@@ -1351,6 +1351,47 @@ def optimizers(args, G, D):
         # Function that loads a model’s parameter dictionary using a deserialized state_dict
         # torch.load() loads an obect from a file (the object must be saved with torch.save() previously
  
+    return G_optimizer, D_optimizer
+    '''
+def optimizers(args, G, D):
+    if args.spectral_norm_gen:
+        G_params = filter(lambda p: p.requires_grad, G.parameters())
+    else:
+        G_params = G.parameters()
+
+    if args.spectral_norm_gen:
+        D_params = filter(lambda p: p.requires_grad, D.parameters())
+    else:
+        D_params = D.parameters()
+
+    if args.optimizer == "rmsprop":
+        G_optimizer = optim.RMSprop(G_params, lr=args.lr_gen)
+        D_optimizer = optim.RMSprop(D_params, lr=args.lr_disc)
+    elif args.optimizer == "adadelta":
+        G_optimizer = optim.Adadelta(G_params, lr=args.lr_gen)
+        D_optimizer = optim.Adadelta(D_params, lr=args.lr_disc)
+    elif args.optimizer == "adam" or args.optimizer == "None":
+        G_optimizer = optim.Adam(
+            G_params, lr=args.lr_gen, weight_decay=5e-4, betas=(args.beta1, args.beta2)
+        )
+        D_optimizer = optim.Adam(
+            D_params, lr=args.lr_disc, weight_decay=5e-4, betas=(args.beta1, args.beta2)
+        )
+
+    if args.load_model:
+        G_optimizer.load_state_dict(
+            torch.load(
+                args.models_path + "/G_optim_" + str(args.start_epoch) + ".pt",
+                map_location=args.device,
+            )
+        )
+        D_optimizer.load_state_dict(
+            torch.load(
+                args.models_path + "/D_optim_" + str(args.start_epoch) + ".pt",
+                map_location=args.device,
+            )
+        )
+
     return G_optimizer, D_optimizer
 
 
